@@ -5,6 +5,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import HomeScreen from "./Homescreen";
 import JourneyPage from "./JourneyPage";
 import LoginPage from "./LoginPage";
+import RideDetails from "./RideDetails";
 
 const Stack = createStackNavigator();
 
@@ -23,6 +24,7 @@ export default function App() {
           options={{ headerShown: false }} // Hide header for HomeScreen
         />
         <Stack.Screen name="Journey" component={JourneyPage} />
+        <Stack.Screen name="Ride Details" component={RideDetails} />
       </Stack.Navigator>
     </NavigationContainer>
   );

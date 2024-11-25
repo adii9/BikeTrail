@@ -6,8 +6,10 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  TextInput,
   ImageBackground,
-  Alert
+  Alert,
+  FlatList,
 } from "react-native";
 import { Svg, Path } from "react-native-svg";
 import MapView, { Polyline, Marker } from "react-native-maps";
@@ -70,7 +72,7 @@ const TrophyIcon = (props) => (
   </Svg>
 );
 
-export const JourneyPage = () => {
+export const JourneyPage = ({ navigation }) => {
   const [tracking, setTracking] = useState(false);
   const [paused, setPaused] = useState(false); // State to track if journey is paused
   const [route, setRoute] = useState([]); // Array to store route coordinates
@@ -83,7 +85,38 @@ export const JourneyPage = () => {
   });
 
   const [currentLocation, setCurrentLocation] = useState(null); // For showing current position on the map
+  const [rideName, setRideName] = useState('Evening Ride'); // For showing current position on the map
   const [pauseStartTime, setPauseStartTime] = useState(null); // To record when the pause started
+  const [routeDetails, setRouteDetails] = useState();
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      const { data, error } = await supabase.from("route_details").select(
+        `
+          id,
+          route_name,
+          distance_travelled,
+          average_speed,
+          time_taken,
+          created_at,
+          route_data,
+          hault_time
+        `
+      );
+      if (error) {
+        console.error(error);
+      } else {
+        setRouteDetails(data);
+      }
+    };
+
+    fetchCustomers();
+  }, [route]);
+
+  useEffect(() => {
+    // console.log("Data from DB -> ", routeDetails);
+  }, [routeDetails]);
+
   useEffect(() => {
     let locationSubscription = null;
 
@@ -137,6 +170,10 @@ export const JourneyPage = () => {
     }
   }, [tracking, paused]);
 
+  useEffect(() => {
+    // console.log("Route data -> ", route);
+  }, [route]);
+
   // Calculate distance using haversine formula
   const calculateDistance = (route) => {
     let totalDistance = 0;
@@ -174,7 +211,7 @@ export const JourneyPage = () => {
     }
 
     const timeTakenInHours = timeTakenInMs / (1000 * 60 * 60); // Convert to hours
-    console.log("Time taken in hrs -> ", timeTakenInHours);
+    // console.log("Time taken in hrs -> ", timeTakenInHours);
     const avgSpeed = totalDistance / timeTakenInHours; // Speed in km/h
 
     return {
@@ -206,7 +243,7 @@ export const JourneyPage = () => {
   };
 
   const saveRoute = async () => {
-    console.log("Details that needs to be saved -> ", stats);
+    // console.log("Details that needs to be saved -> ", stats);
     try {
       const { data, error } = await supabase
         .from("route_details") // Table name
@@ -217,6 +254,7 @@ export const JourneyPage = () => {
             distance_travelled: stats.distance,
             time_taken: stats.timeTaken,
             hault_time: stats.pauseTime,
+            route_name: rideName
           },
         ]);
 
@@ -225,8 +263,9 @@ export const JourneyPage = () => {
         return { success: false, message: error.message };
       }
 
-      console.log("Route saved successfully:");
+      // console.log("Route saved successfully:");
       setRoute([]); // Reset route
+      setRideName('Evening Ride')
       setStats({
         distance: 0,
         avgSpeed: 0,
@@ -243,8 +282,8 @@ export const JourneyPage = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollView}>
-        {/* <ImageBackground
+      {/* <ScrollView contentContainerStyle={styles.scrollView}> */}
+      {/* <ImageBackground
           source={{ uri: 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80' }}
           style={styles.header}
           imageStyle={styles.headerImage}
@@ -254,144 +293,168 @@ export const JourneyPage = () => {
           <Text style={styles.headerSubtitle}>Track, Compete, Conquer</Text>
         </ImageBackground> */}
 
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: currentLocation?.latitude || 37.7749,
-            longitude: currentLocation?.longitude || -122.4194,
+      <MapView
+        style={styles.map}
+        initialRegion={{
+          latitude: currentLocation?.latitude || 37.7749,
+          longitude: currentLocation?.longitude || -122.4194,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }}
+        region={
+          currentLocation && {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
-          }}
-          region={
-            currentLocation && {
-              latitude: currentLocation.latitude,
-              longitude: currentLocation.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }
           }
-        >
-          {route.length > 0 && (
-            <>
-              <Polyline
-                coordinates={route.map((point) => ({
-                  latitude: point.latitude,
-                  longitude: point.longitude,
-                }))}
-                strokeColor="blue"
-                strokeWidth={3}
-              />
-              <Marker
-                coordinate={{
-                  latitude: route[0].latitude,
-                  longitude: route[0].longitude,
-                }}
-                title="Start"
-              />
-              <Marker
-                coordinate={{
-                  latitude: route[route.length - 1].latitude,
-                  longitude: route[route.length - 1].longitude,
-                }}
-                title="Current Location"
-              />
-            </>
-          )}
-        </MapView>
-
-        <View style={styles.content}>
-          <View style={styles.ActionButtons}>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => {
-                if (!tracking) {
-                  setRoute([]); // Reset route
-                  setStats({
-                    distance: 0,
-                    avgSpeed: 0,
-                    timeTaken: 0,
-                    pauseTime: 0,
-                  }); // Reset stats
-                }
-                setTracking(!tracking); // Toggle tracking
+        }
+      >
+        {route.length > 0 && (
+          <>
+            <Polyline
+              coordinates={route.map((point) => ({
+                latitude: point.latitude,
+                longitude: point.longitude,
+              }))}
+              strokeColor="blue"
+              strokeWidth={3}
+            />
+            <Marker
+              coordinate={{
+                latitude: route[0].latitude,
+                longitude: route[0].longitude,
               }}
-            >
+              title="Start"
+            />
+            <Marker
+              coordinate={{
+                latitude: route[route.length - 1].latitude,
+                longitude: route[route.length - 1].longitude,
+              }}
+              title="Current Location"
+            />
+          </>
+        )}
+      </MapView>
+
+      <View style={styles.content}>
+        <View style={styles.ActionButtons}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => {
+              if (!tracking) {
+                setRoute([]); // Reset route
+                setStats({
+                  distance: 0,
+                  avgSpeed: 0,
+                  timeTaken: 0,
+                  pauseTime: 0,
+                }); // Reset stats
+              }
+              setTracking(!tracking); // Toggle tracking
+            }}
+          >
+            <BikeIcon style={styles.buttonIcon} />
+            <Text style={styles.buttonText}>
+              {tracking && !paused ? "Stop Ride" : "Start Ride"}
+            </Text>
+          </TouchableOpacity>
+
+          {tracking && (
+            <TouchableOpacity style={styles.button} onPress={handlePause}>
               <BikeIcon style={styles.buttonIcon} />
               <Text style={styles.buttonText}>
-                {tracking && !paused ? "Stop Ride" : "Start Ride"}
+                {tracking && !paused ? "Pause" : "Resume"}
               </Text>
             </TouchableOpacity>
+          )}
+        </View>
 
-            {tracking && (
-              <TouchableOpacity style={styles.button} onPress={handlePause}>
-                <BikeIcon style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>
-                  {tracking && !paused ? "Pause" : "Resume"}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.CurrentSpeedContainer}>
-            {tracking && (
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{currentSpeed} Km/Hr</Text>
-                <Text style={styles.statLabel}>Current Speed</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.statsContainer}>
-            {!tracking && (
-              <>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.distance}</Text>
-                  <Text style={styles.statLabel}>km Ridden</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.timeTaken}</Text>
-                  <Text style={styles.statLabel}>Hours</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.avgSpeed} km/h</Text>
-                  <Text style={styles.statLabel}>Avg. Speed</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.pauseTime} Secs</Text>
-                  <Text style={styles.statLabel}>Hault</Text>
-                </View>
-              </>
-            )}
-          </View>
-
-          {route.length > 0 && !tracking && (
+        <View style={styles.CurrentSpeedContainer}>
+          {tracking && (
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{currentSpeed} Km/Hr</Text>
+              <Text style={styles.statLabel}>Current Speed</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.statsContainer}>
+          {!tracking && (
             <>
-              <Text style={styles.sectionTitle}>Quick Actions</Text>
-              <View style={styles.quickActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={saveRoute}
-                >
-                  <MapIcon style={styles.actionIcon} />
-                  <Text style={styles.actionText}>Save Ride Details</Text>
-                </TouchableOpacity>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.distance}</Text>
+                <Text style={styles.statLabel}>km Ridden</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.timeTaken}</Text>
+                <Text style={styles.statLabel}>Hours</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.avgSpeed} km/h</Text>
+                <Text style={styles.statLabel}>Avg. Speed</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.pauseTime} Secs</Text>
+                <Text style={styles.statLabel}>Hault</Text>
               </View>
             </>
           )}
-
-          <Text style={styles.sectionTitle}>Recent Activities</Text>
-          {[1, 2, 3].map((item) => (
-            <View key={item} style={styles.activityItem}>
-              <BikeIcon style={styles.activityIcon} />
-              <View style={styles.activityInfo}>
-                <Text style={styles.activityTitle}>Morning Ride</Text>
-                <Text style={styles.activitySubtitle}>
-                  15.2 km • 45 min • 2 days ago
-                </Text>
-              </View>
-            </View>
-          ))}
         </View>
-      </ScrollView>
+
+        {route.length > 0 && !tracking && (
+          <>
+            <View style={styles.saveRideContainer}>
+              <Text style={styles.sectionTitle}>Save Details</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter name"
+                value={rideName}
+                onChangeText={setRideName}
+                placeholderTextColor="#999"
+              />
+              <TouchableOpacity style={styles.saveButton} onPress={saveRoute}>
+                <MapIcon style={styles.actionIcon} />
+                <Text style={styles.saveButtonText}>Save Ride Details</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        <Text style={styles.sectionTitle}>Recent Rides</Text>
+        <FlatList
+          style={{ height: "40%" }}
+          data={routeDetails}
+          renderItem={({ item }) => (
+            <>
+              <TouchableOpacity
+                key={item}
+                style={styles.activityItem}
+                onPress={() =>
+                  navigation.navigate("Ride Details", {
+                    id: item.id,
+                    timeTaken: item.time_taken,
+                    average_speed: item.average_speed,
+                    hault: item.hault_time,
+                    distance_travelled: item.distance_travelled,
+                    route_data: item.route_data,
+                  })
+                }
+              >
+                <BikeIcon style={styles.activityIcon} />
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityTitle}>{item.route_name}</Text>
+                  <Text style={styles.activitySubtitle}>
+                    Distance: {item.distance_travelled} Kms • Time:{" "}
+                    {item.time_taken} Hrs
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
+        />
+      </View>
+      {/* </ScrollView> */}
     </SafeAreaView>
   );
 };
@@ -435,6 +498,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
   },
+  saveRideContainer: {
+    backgroundColor: "#ffffff",
+    padding: 20,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
   button: {
     backgroundColor: "#ff6b6b",
     flexDirection: "row",
@@ -452,6 +521,12 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  saveButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+    margin: 5
   },
   statsContainer: {
     flexDirection: "row",
@@ -487,16 +562,31 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     marginBottom: 20,
   },
   actionButton: {
     backgroundColor: "#4ecdc4",
-    padding: 15,
+    padding: 10,
     borderRadius: 8,
     alignItems: "center",
     flex: 1,
     marginHorizontal: 5,
+  },
+  input: {
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  saveButton: {
+    backgroundColor: "#4ecdc4",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 15,
+    borderRadius: 8,
   },
   actionIcon: {
     marginBottom: 5,

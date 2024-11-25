@@ -75,10 +75,10 @@ const HomeScreen = ({ navigation }) => {
         return { success: false, message: error.message };
       }
 
-      console.log(
-        "Login initiated, redirecting to Google OAuth URL:",
-        data.url
-      );
+      // console.log(
+      //   "Login initiated, redirecting to Google OAuth URL:",
+      //   data.url
+      // );
 
       // At this point, the user is redirected to Google for login
       return { success: true, message: "Redirecting to Google OAuth" };
@@ -102,7 +102,7 @@ const HomeScreen = ({ navigation }) => {
       }
 
       // Successfully logged in
-      console.log("Logged in with Google:", data);
+      // console.log("Logged in with Google:", data);
     }
   };
 
