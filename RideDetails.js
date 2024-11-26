@@ -9,7 +9,7 @@ import {
   ImageBackground,
   Alert,
   FlatList,
-  Share
+  Share,
 } from "react-native";
 import { Svg, Path } from "react-native-svg";
 import MapView, { Polyline, Marker } from "react-native-maps";
@@ -18,7 +18,6 @@ import haversine from "haversine";
 import { supabase } from "./utils/supabaseClient";
 import ViewShot from "react-native-view-shot";
 import * as FileSystem from "expo-file-system";
-
 
 const BikeIcon = (props) => (
   <Svg
@@ -153,7 +152,11 @@ export const RideDetails = ({ route }) => {
           <Text style={styles.headerTitle}>BikeTrail</Text>
           <Text style={styles.headerSubtitle}>Track, Compete, Conquer</Text>
         </ImageBackground> */}
-      <ViewShot ref={mapViewRef} style={{ flex: 1 }} options={{ format: "jpg", quality: 0.9 }}>
+      <ViewShot
+        ref={mapViewRef}
+        style={{ flex: 1 }}
+        options={{ format: "jpg", quality: 0.9 }}
+      >
         <MapView
           style={styles.map}
           initialRegion={{
@@ -248,9 +251,15 @@ export const RideDetails = ({ route }) => {
         </View>
       </ViewShot>
 
-      <TouchableOpacity style={styles.shareButton} onPress={shareJourney}>
-        <Text style={styles.shareButtonText}>Share Your Journey</Text>
-      </TouchableOpacity>
+      <View style={styles.header1}>
+        <TouchableOpacity style={styles.shareButton} onPress={shareJourney}>
+          <Text style={styles.shareButtonText}>Share Your Journey</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.shareButton} onPress={shareJourney}>
+          <Text style={styles.shareButtonText}>Share on Scoreboard</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* </ScrollView> */}
     </SafeAreaView>
@@ -273,6 +282,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  header1: {
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    marginBottom: 10,
+  },
   headerImage: {
     opacity: 0.7,
   },
@@ -283,7 +297,7 @@ const styles = StyleSheet.create({
   shareButton: {
     backgroundColor: "#007bff",
     padding: 12,
-    margin: 16,
+    margin: 5,
     borderRadius: 8,
     alignItems: "center",
   },
