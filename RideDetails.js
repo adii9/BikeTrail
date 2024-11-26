@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   SafeAreaView,
   ScrollView,
@@ -9,12 +9,16 @@ import {
   ImageBackground,
   Alert,
   FlatList,
+  Share
 } from "react-native";
 import { Svg, Path } from "react-native-svg";
 import MapView, { Polyline, Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import haversine from "haversine";
 import { supabase } from "./utils/supabaseClient";
+import ViewShot from "react-native-view-shot";
+import * as FileSystem from "expo-file-system";
+
 
 const BikeIcon = (props) => (
   <Svg
@@ -80,14 +84,7 @@ export const RideDetails = ({ route }) => {
     distance_travelled,
     route_data,
   } = route.params;
-  // console.log(
-  //   "Data from previous page -> ",
-  //   id,
-  //   timeTaken,
-  //   average_speed,
-  //   hault,
-  //   route_data
-  // );
+
   const [tracking, setTracking] = useState(false);
   const [paused, setPaused] = useState(false); // State to track if journey is paused
   const [route1, setRoute1] = useState(route_data); // Array to store route coordinates
@@ -103,6 +100,47 @@ export const RideDetails = ({ route }) => {
   const [pauseStartTime, setPauseStartTime] = useState(null); // To record when the pause started
   const [routeDetails, setRouteDetails] = useState();
 
+  const shareJourney = async () => {
+    try {
+      // Capture the map view as an image
+      const snapshotUri = await mapViewRef.current.capture({
+        format: "jpg",
+        quality: 0.8,
+        result: "tmpfile",
+      });
+
+      if (!snapshotUri) {
+        throw new Error("Snapshot URI is invalid.");
+      }
+
+      console.log("Snapshot URI:", snapshotUri);
+
+      const message = `🚴‍♂️ Check out my ride on BikeTrail!
+  - Distance: ${distance_travelled} km
+  - Time: ${timeTaken} hours
+  - Average Speed: ${average_speed} km/h
+  - Haults: ${hault} seconds
+  Join me on BikeTrail!`;
+
+      const result = await Share.share({
+        title: "Share Your Ride",
+        message,
+        url: snapshotUri, // Attach the captured image directly
+      });
+
+      if (result.action === Share.sharedAction) {
+        console.log("Shared successfully!");
+      } else if (result.action === Share.dismissedAction) {
+        console.log("Share dismissed.");
+      }
+    } catch (error) {
+      console.error("Error sharing ride:", error);
+      Alert.alert("Error", "Unable to share your ride. Please try again.");
+    }
+  };
+
+  const mapViewRef = useRef();
+
   return (
     <SafeAreaView style={styles.container}>
       {/* <ScrollView contentContainerStyle={styles.scrollView}> */}
@@ -115,96 +153,105 @@ export const RideDetails = ({ route }) => {
           <Text style={styles.headerTitle}>BikeTrail</Text>
           <Text style={styles.headerSubtitle}>Track, Compete, Conquer</Text>
         </ImageBackground> */}
-
-      <MapView
-        style={styles.map}
-        initialRegion={{
-          latitude: route1[route1.length - 1]["latitude"],
-          longitude: route1[route1.length - 1]['longitude'],
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
-        region={
-          currentLocation && {
-            latitude: route1[route1.length - 1]['longitude'],
-            longitude: route1[route1.length - 1]['longitude'],
+      <ViewShot ref={mapViewRef} style={{ flex: 1 }} options={{ format: "jpg", quality: 0.9 }}>
+        <MapView
+          style={styles.map}
+          initialRegion={{
+            latitude: route1[route1.length - 1]["latitude"],
+            longitude: route1[route1.length - 1]["longitude"],
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
+          }}
+          region={
+            currentLocation && {
+              latitude: route1[route1.length - 1]["longitude"],
+              longitude: route1[route1.length - 1]["longitude"],
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            }
           }
-        }
-      >
-        {route1.length > 0 && (
-          <>
-            <Polyline
-              coordinates={route1.map((point) => ({
-                latitude: point.latitude,
-                longitude: point.longitude,
-              }))}
-              strokeColor="blue"
-              strokeWidth={3}
-            />
-            <Marker
-              coordinate={{
-                latitude: route1[0].latitude,
-                longitude: route1[0].longitude,
-              }}
-              title="Start"
-            />
-            <Marker
-              coordinate={{
-                latitude: route1[route1.length - 1].latitude,
-                longitude: route1[route1.length - 1].longitude,
-              }}
-              title="Current Location"
-            />
-          </>
-        )}
-      </MapView>
-
-      <View style={styles.content}>
-        <View style={styles.CurrentSpeedContainer}>
-          {tracking && (
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{currentSpeed} Km/Hr</Text>
-              <Text style={styles.statLabel}>Current Speed</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.statsContainer}>
-          {!tracking && (
+        >
+          {route1.length > 0 && (
             <>
+              <Polyline
+                coordinates={route1.map((point) => ({
+                  latitude: point.latitude,
+                  longitude: point.longitude,
+                }))}
+                strokeColor="blue"
+                strokeWidth={3}
+              />
+              <Marker
+                coordinate={{
+                  latitude: route1[0].latitude,
+                  longitude: route1[0].longitude,
+                }}
+                title="Start"
+              />
+              <Marker
+                coordinate={{
+                  latitude: route1[route1.length - 1].latitude,
+                  longitude: route1[route1.length - 1].longitude,
+                }}
+                title="Current Location"
+              />
+            </>
+          )}
+        </MapView>
+
+        <View style={styles.content}>
+          <View style={styles.CurrentSpeedContainer}>
+            {tracking && (
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{distance_travelled}</Text>
-                <Text style={styles.statLabel}>km Ridden</Text>
+                <Text style={styles.statValue}>{currentSpeed} Km/Hr</Text>
+                <Text style={styles.statLabel}>Current Speed</Text>
               </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{timeTaken}</Text>
-                <Text style={styles.statLabel}>Hours</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{average_speed} km/h</Text>
-                <Text style={styles.statLabel}>Avg. Speed</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{hault} Secs</Text>
-                <Text style={styles.statLabel}>Hault</Text>
+            )}
+          </View>
+          <View style={styles.statsContainer}>
+            {!tracking && (
+              <>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{distance_travelled}</Text>
+                  <Text style={styles.statLabel}>km Ridden</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{timeTaken}</Text>
+                  <Text style={styles.statLabel}>Hours</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{average_speed} km/h</Text>
+                  <Text style={styles.statLabel}>Avg. Speed</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{hault} Secs</Text>
+                  <Text style={styles.statLabel}>Hault</Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          {route.length > 0 && !tracking && (
+            <>
+              <Text style={styles.sectionTitle}>Quick Actions</Text>
+              <View style={styles.quickActions}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={saveRoute}
+                >
+                  <MapIcon style={styles.actionIcon} />
+                  <Text style={styles.actionText}>Save Ride Details</Text>
+                </TouchableOpacity>
               </View>
             </>
           )}
         </View>
+      </ViewShot>
 
-        {route.length > 0 && !tracking && (
-          <>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
-            <View style={styles.quickActions}>
-              <TouchableOpacity style={styles.actionButton} onPress={saveRoute}>
-                <MapIcon style={styles.actionIcon} />
-                <Text style={styles.actionText}>Save Ride Details</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </View>
+      <TouchableOpacity style={styles.shareButton} onPress={shareJourney}>
+        <Text style={styles.shareButtonText}>Share Your Journey</Text>
+      </TouchableOpacity>
+
       {/* </ScrollView> */}
     </SafeAreaView>
   );
@@ -232,6 +279,18 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  shareButton: {
+    backgroundColor: "#007bff",
+    padding: 12,
+    margin: 16,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  shareButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   headerTitle: {
     fontSize: 32,
