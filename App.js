@@ -6,6 +6,8 @@ import HomeScreen from "./Homescreen";
 import JourneyPage from "./JourneyPage";
 import LoginPage from "./LoginPage";
 import RideDetails from "./RideDetails";
+import ProfilePage from "./ProfilePage";
+import AchievementsPage from "./AchievementCard";
 
 const Stack = createStackNavigator();
 
@@ -16,6 +18,16 @@ export default function App() {
         <Stack.Screen
           name="LoginPage"
           component={LoginPage}
+          options={{ headerShown: false }} // Hide header for HomeScreen
+        />
+        <Stack.Screen
+          name="AchievementsPage"
+          component={AchievementsPage}
+          options={{ headerShown: false }} // Hide header for HomeScreen
+        />
+        <Stack.Screen
+          name="ProfilePage"
+          component={ProfilePage}
           options={{ headerShown: false }} // Hide header for HomeScreen
         />
         <Stack.Screen
